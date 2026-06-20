@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>大盘日报</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #fff;
+      --line: #e2e5ea;
+      --text: #30343b;
+      --muted: #6e7683;
+      --blue: #0b73e8;
+      --red: #ff3f68;
+      --green: #0f9f67;
+      --shadow: 0 1px 2px rgba(20, 28, 40, .06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 1366px;
+      color: var(--text);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button { font: inherit; }
+
+    .page { padding: 12px; }
+
+    .filters {
+      display: grid;
+      grid-template-columns: 440px 1fr 420px;
+      gap: 34px;
+      min-height: 102px;
+      padding: 20px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .quick-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      height: 36px;
+      padding: 2px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #eef0f3;
+    }
+
+    .quick-tabs button {
+      border: 0;
+      border-radius: 7px;
+      color: #6a7079;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .quick-tabs .active {
+      color: #40464f;
+      background: #fff;
+      box-shadow: 0 1px 6px rgba(30, 41, 59, .12);
+    }
+
+    .filter-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .filter-item label {
+      font-size: 15px;
+      font-weight: 750;
+      color: #343941;
+      white-space: nowrap;
+    }
+
+    .control {
+      position: relative;
+      height: 36px;
+      padding: 0 38px 0 12px;
+      border: 1px solid #d8dce3;
+      border-radius: 8px;
+      color: #555b65;
+      background: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 34px;
+      white-space: nowrap;
+    }
+
+    .control.disabled { color: #c3c7ce; background: #fbfbfc; }
+    .control .arrow { padding: 0 22px; color: #c0c4cb; }
+
+    .control::after {
+      content: "";
+      position: absolute;
+      right: 13px;
+      top: 11px;
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid #c5c9d0;
+      border-bottom: 2px solid #c5c9d0;
+      transform: rotate(45deg);
+    }
+
+    .date-control::after {
+      top: 10px;
+      width: 15px;
+      height: 15px;
+      border: 1.8px solid #c5c9d0;
+      border-radius: 2px;
+      transform: none;
+    }
+
+    .filter-actions {
+      grid-column: 3;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      height: 36px;
+      padding: 0 18px;
+      border: 1px solid #d8dce3;
+      border-radius: 8px;
+      color: #4e5560;
+      background: #fff;
+      font-size: 15px;
+      font-weight: 750;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    .btn.primary {
+      min-width: 74px;
+      color: #fff;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px 14px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      position: relative;
+      min-height: 100px;
+      padding: 18px 16px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .metric-title {
+      margin-bottom: 6px;
+      color: #545b65;
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-height: 36px;
+    }
+
+    .metric-value {
+      color: #3b4048;
+      font-size: 32px;
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .metric-change {
+      color: var(--red);
+      font-size: 15px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .metric-sub {
+      color: #717a88;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .help {
+      display: inline-grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid #666d77;
+      border-radius: 50%;
+      color: #666d77;
+      font-size: 11px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .metric .help {
+      position: absolute;
+      top: 16px;
+      right: 14px;
+    }
+
+    .table-panel {
+      margin-top: 10px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 54px;
+      padding: 0 12px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .tools {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .export {
+      height: 38px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid #d8dce3;
+      border-radius: 50%;
+      color: #5f6670;
+      background: #fff;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      padding: 0 10px 12px;
+    }
+
+    table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      height: 46px;
+      min-width: 132px;
+      padding: 0 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th {
+      height: 44px;
+      color: #565d67;
+      background: #f8f8f9;
+      font-weight: 800;
+    }
+
+    th:nth-child(1), td:nth-child(1) { min-width: 68px; }
+    th:nth-child(2), td:nth-child(2) { min-width: 124px; }
+    th:nth-child(3), td:nth-child(3) { min-width: 100px; }
+    th:nth-child(4), td:nth-child(4) { min-width: 128px; }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child, td:last-child { border-right: 0; }
+
+    .num { text-align: right; }
+    .negative { color: #ba2440; }
+    .positive { color: var(--green); }
+
+    .status {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 18px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .mask {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      background: rgba(17, 24, 39, .22);
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 21;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      width: 360px;
+      height: 100vh;
+      transform: translateX(100%);
+      border-left: 1px solid var(--line);
+      background: #fff;
+      box-shadow: -12px 0 32px rgba(20, 28, 40, .16);
+      transition: transform .18s ease;
+    }
+
+    .mask.open { display: block; }
+    .drawer.open { transform: translateX(0); }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .drawer-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--blue);
+      font-size: 18px;
+      font-weight: 850;
+    }
+
+    .collapse {
+      position: relative;
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      background: var(--blue);
+    }
+
+    .collapse::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      top: 10px;
+      height: 2px;
+      background: #fff;
+    }
+
+    .close {
+      border: 0;
+      color: #747b86;
+      background: transparent;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .field-list { overflow: auto; }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 34px 34px 1fr 34px 34px;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 14px;
+      font-size: 17px;
+      font-weight: 650;
+    }
+
+    .field-row:hover { background: #f7fbff; }
+
+    .check {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border: 2px solid #d9dde5;
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    .check.on {
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    .check.on::after {
+      content: "";
+      width: 10px;
+      height: 6px;
+      border-left: 3px solid #fff;
+      border-bottom: 3px solid #fff;
+      transform: translateY(-2px) rotate(-45deg);
+    }
+
+    .drag {
+      width: 22px;
+      height: 22px;
+      background: radial-gradient(circle, #30343b 1.6px, transparent 2.4px) 0 0 / 8px 8px;
+    }
+
+    .pin {
+      position: relative;
+      width: 18px;
+      height: 18px;
+      border: 1.6px solid currentColor;
+      border-left: 0;
+      border-bottom: 0;
+      color: #30343b;
+      transform: rotate(45deg);
+    }
+
+    .pin::before {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 1.6px;
+      left: -6px;
+      top: 8px;
+      background: currentColor;
+      transform: rotate(-45deg);
+    }
+
+    .pin.blue { color: var(--blue); }
+    .pin.muted { color: #9ca3ad; }
+
+    .drawer-foot {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      height: 48px;
+      border-top: 1px solid var(--line);
+    }
+
+    .drawer-foot button {
+      border: 0;
+      background: #fff;
+      font-size: 16px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .drawer-foot .restore { color: #a5abb4; }
+    .drawer-foot .confirm { color: var(--blue); }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 30;
+      display: none;
+      transform: translateX(-50%);
+      padding: 10px 16px;
+      border-radius: 8px;
+      color: #fff;
+      background: rgba(35, 41, 49, .92);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="filters">
+      <div class="quick-tabs">
+        <button type="button" data-range="today">今日</button>
+        <button type="button" data-range="yesterday">昨日</button>
+        <button type="button" data-range="7">近7日</button>
+        <button class="active" type="button" data-range="30">近30日</button>
+        <button type="button" data-range="custom">自定义</button>
+      </div>
+      <div class="filter-item">
+        <label>日期范围</label>
+        <div class="control disabled date-control" id="dateRangeText">2026-05-23 <span class="arrow">→</span> 2026-06-21</div>
+      </div>
+      <div class="filter-item">
+        <label>渠道</label>
+        <div class="control">全部渠道</div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn" type="button" id="resetBtn">重置</button>
+        <button class="btn primary" type="button" id="searchBtn">查询</button>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="table-panel" id="dailyDetail">
+      <div class="table-header">
+        <h1>日报详细数据</h1>
+        <div class="tools">
+          <button class="export" type="button" id="exportBtn">⇩ 导出</button>
+          <button class="icon-btn" type="button" title="刷新" id="refreshBtn">↻</button>
+          <button class="icon-btn" type="button" title="全屏">⛶</button>
+          <button class="icon-btn" type="button" title="字段设置" id="fieldBtn">▦</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="dailyTable"></table>
+      </div>
+      <div class="status">
+        <span id="rowCount">共 30 条，每页 10 条</span>
+        <span id="fieldCount"></span>
+      </div>
+    </section>
+  </main>
+
+  <div class="mask" id="mask"></div>
+  <aside class="drawer" id="drawer">
+    <header class="drawer-head">
+      <div class="drawer-title"><i class="collapse"></i>全部</div>
+      <button class="close" type="button" id="closeDrawer">×</button>
+    </header>
+    <div class="field-list" id="fieldList"></div>
+    <footer class="drawer-foot">
+      <button class="restore" type="button" id="restoreBtn">恢复默认</button>
+      <button type="button" id="cancelDrawer">取消</button>
+      <button class="confirm" type="button" id="confirmDrawer">确认</button>
+    </footer>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const metrics = [
+      ["DAU（活跃人数）", "5,039", "↓ 75.82%", "较昨日：-15,798"],
+      ["充值总额", "68,196.00", "↓ 87.69%", "较昨日：-485,754.00"],
+      ["提现总额", "63,304.00", "↓ 85.52%", "较昨日：-373,877.00"],
+      ["充提差", "4,892.00", "↓ 95.81%", "较昨日：-111,877.00"],
+      ["新客付费率", "26.18%", "↓ 22.48%", "较昨日：-7.59%"],
+      ["新客提现率", "13.31%", "↓ 31.39%", "较昨日：-6.09%"],
+      ["新增付费 ARPPU", "48.98", "↓ 31.60%", "较昨日：-22.63"],
+      ["老客付费 ARPPU", "73.90", "↓ 24.06%", "较昨日：-23.41"]
+    ];
+
+    const fields = [
+      ["序号", true, true],
+      ["日期", true, true],
+      ["渠道ID", true, false],
+      ["渠道名称", true, false],
+      ["充值总额", true, false],
+      ["提现总额", true, false],
+      ["提现率", true, false],
+      ["充提差", true, false],
+      ["支付成功率", true, false],
+      ["提现成功率", true, false],
+      ["投注总额", true, false],
+      ["派奖总额", true, false],
+      ["大盘RTP", true, false],
+      ["人工加款", true, false],
+      ["人工扣款", true, false],
+      ["毛利", true, false],
+      ["NGR", true, false],
+      ["活动金额", true, false],
+      ["注册人数", true, false],
+      ["裂变人数", true, false],
+      ["裂变充值人数", true, false],
+      ["活跃人数", true, false],
+      ["提现人数", true, false],
+      ["首存人数", true, false],
+      ["首存金额", true, false],
+      ["首充总金额", true, false],
+      ["首充提现总金额", true, false],
+      ["首充用户充提差", true, false],
+      ["首充用户付费ARPPU", true, false],
+      ["注册转化率", true, false],
+      ["复存人数", true, false],
+      ["复存金额", true, false],
+      ["新客付费人数", true, false],
+      ["新客付费率", true, false],
+      ["新客提现率", true, false],
+      ["新客首充总金额", true, false],
+      ["新客付费金额", true, false],
+      ["新增付费ARPPU", true, false],
+      ["老客充值人数", true, false],
+      ["老客充值金额", true, false],
+      ["老客登录人数", true, false],
+      ["老客付费率", true, false],
+      ["老客付费ARPPU", true, false],
+      ["新客玩牌率", true, false],
+      ["老客玩牌率", true, false],
+      ["注册玩牌率", true, false],
+      ["当日玩牌率", true, false]
+    ];
+
+    const rows = [
+      ["1", "2026-06-21", "ALL", "所有渠道", "68,196.00", "63,304.00", "92.83%", "4,892.00", "76.16%", "98.70%", "866,449.78", "842,616.13", "97.25%", "2,300.00", "480.00", "23,833.65", "21,533.65", "4,640.00", "1,834", "312", "86", "5,039", "941", "528", "25,862.00", "25,862.00", "3,441.00", "22,421.00", "48.98", "28.79%", "436", "42,334.00", "528", "26.18%", "13.31%", "25,862.00", "25,862.00", "48.98", "573", "42,334.00", "4,511", "12.70%", "73.90", "41.62%", "67.31%", "18.24%", "58.33%"],
+      ["2", "2026-06-20", "ALL", "所有渠道", "553,950.00", "437,181.00", "78.92%", "116,769.00", "78.70%", "97.98%", "5,765,459.47", "5,471,743.96", "94.91%", "5,600.00", "1,100.00", "293,715.51", "288,115.51", "31,240.00", "6,219", "1,044", "401", "20,837", "3,862", "2,106", "150,624.00", "150,624.00", "41,516.00", "109,108.00", "71.52", "33.86%", "1,524", "403,326.00", "2,106", "33.77%", "19.40%", "150,624.00", "150,624.00", "71.52", "4,208", "403,326.00", "18,731", "22.47%", "95.85", "48.80%", "71.42%", "33.86%", "63.77%"],
+      ["3", "2026-06-19", "ALL", "所有渠道", "173,763.00", "115,358.00", "66.39%", "58,405.00", "72.92%", "97.85%", "1,581,063.93", "1,502,407.26", "95.03%", "1,200.00", "260.00", "78,656.67", "77,456.67", "9,860.00", "3,148", "588", "183", "8,926", "1,377", "1,016", "70,421.00", "70,421.00", "17,919.00", "52,502.00", "69.31", "32.27%", "692", "103,342.00", "1,016", "32.27%", "16.84%", "70,421.00", "70,421.00", "69.31", "1,287", "103,342.00", "7,910", "16.27%", "80.30", "44.18%", "69.93%", "29.72%", "60.91%"],
+      ["4", "2026-06-18", "ALL", "所有渠道", "27,729.00", "26,041.00", "93.91%", "1,688.00", "74.31%", "92.80%", "301,917.77", "284,013.91", "94.07%", "640.00", "0.00", "17,903.86", "17,263.86", "2,160.00", "812", "143", "41", "2,314", "463", "226", "10,842.00", "10,842.00", "2,620.00", "8,222.00", "47.97", "27.83%", "174", "16,887.00", "226", "27.83%", "12.40%", "10,842.00", "10,842.00", "47.97", "417", "16,887.00", "2,088", "19.97%", "40.50", "39.20%", "64.15%", "25.74%", "54.82%"],
+      ["5", "2026-06-17", "ALL", "所有渠道", "50,588.00", "48,943.00", "96.75%", "1,645.00", "82.31%", "97.30%", "528,852.10", "506,007.86", "95.68%", "900.00", "60.00", "22,844.24", "21,944.24", "3,450.00", "1,126", "218", "73", "3,026", "594", "342", "18,442.00", "18,442.00", "4,814.00", "13,628.00", "53.92", "30.37%", "286", "32,146.00", "342", "30.37%", "14.91%", "18,442.00", "18,442.00", "53.92", "495", "32,146.00", "2,684", "18.44%", "64.94", "42.12%", "66.48%", "30.37%", "57.96%"],
+      ["6", "2026-06-16", "ALL", "所有渠道", "35,295.00", "37,227.00", "105.47%", "-1,932.00", "77.90%", "98.13%", "371,149.24", "359,810.44", "96.94%", "120.00", "220.00", "11,338.80", "11,218.80", "2,730.00", "904", "166", "52", "2,506", "511", "276", "13,230.00", "13,230.00", "3,920.00", "9,310.00", "47.93", "30.53%", "241", "22,065.00", "276", "30.53%", "15.05%", "13,230.00", "13,230.00", "47.93", "367", "22,065.00", "2,139", "17.16%", "60.12", "40.88%", "65.17%", "28.45%", "55.04%"]
+    ];
+
+    const table = document.getElementById("dailyTable");
+    const fieldList = document.getElementById("fieldList");
+    const drawer = document.getElementById("drawer");
+    const mask = document.getElementById("mask");
+    const toast = document.getElementById("toast");
+    const dateRangeText = document.getElementById("dateRangeText");
+    const dailyDetail = document.getElementById("dailyDetail");
+    const baseDate = new Date("2026-06-21T00:00:00");
+    let currentRange = "30";
+
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function addDays(date, days) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + days);
+      return next;
+    }
+
+    function buildThirtyDayRows(seedRows) {
+      return Array.from({ length: 30 }, (_, index) => {
+        const source = seedRows[index % seedRows.length];
+        const row = [...source];
+        row[0] = String(index + 1);
+        row[1] = formatDate(addDays(baseDate, -index));
+        return row;
+      });
+    }
+
+    const allRows = buildThirtyDayRows(rows);
+
+    function isNumberLike(value) {
+      return /[%\d]$/.test(value) && !/^\d{4}-/.test(value) && value !== "ALL";
+    }
+
+    function getRangeConfig(range) {
+      if (range === "today") {
+        return { start: formatDate(baseDate), end: formatDate(baseDate), label: "今日" };
+      }
+      if (range === "yesterday") {
+        const yesterday = formatDate(addDays(baseDate, -1));
+        return { start: yesterday, end: yesterday, label: "昨日" };
+      }
+      if (range === "7") {
+        return { start: formatDate(addDays(baseDate, -6)), end: formatDate(baseDate), label: "近7日" };
+      }
+      if (range === "custom") {
+        return { start: "2026-06-18", end: "2026-06-21", label: "自定义" };
+      }
+      return { start: formatDate(addDays(baseDate, -29)), end: formatDate(baseDate), label: "近30日" };
+    }
+
+    function getFilteredRows() {
+      const { start, end } = getRangeConfig(currentRange);
+      return allRows.filter((row) => row[1] >= start && row[1] <= end);
+    }
+
+    function updateDateRangeText() {
+      const { start, end } = getRangeConfig(currentRange);
+      dateRangeText.innerHTML = `${start} <span class="arrow">→</span> ${end}`;
+    }
+
+    function renderMetrics() {
+      document.getElementById("metrics").innerHTML = metrics.map(([title, value, change, sub]) => `
+        <article class="metric">
+          <span class="help">?</span>
+          <div class="metric-title">${title}</div>
+          <div class="metric-row">
+            <div class="metric-value">${value}</div>
+            <div class="metric-change">${change}</div>
+          </div>
+          <div class="metric-sub">${sub}</div>
+        </article>
+      `).join("");
+    }
+
+    function renderTable() {
+      const visibleFields = fields.filter((field) => field[1]);
+      const indexes = fields.map((field, index) => field[1] ? index : -1).filter((index) => index !== -1);
+      const header = visibleFields.map(([name]) => `<th>${name} <span class="help">?</span></th>`).join("");
+      const activeRows = getFilteredRows();
+      const body = activeRows.map((row, rowIndex) => {
+        const displayRow = [...row];
+        displayRow[0] = String(rowIndex + 1);
+        return `
+        <tr>
+          ${indexes.map((index) => {
+            const value = displayRow[index];
+            const cls = [isNumberLike(value) ? "num" : "", value && value.startsWith("-") ? "negative" : ""].join(" ").trim();
+            return `<td class="${cls}">${value}</td>`;
+          }).join("")}
+        </tr>
+      `;
+      }).join("");
+      table.innerHTML = `<thead><tr>${header}</tr></thead><tbody>${body}</tbody>`;
+      document.getElementById("fieldCount").textContent = `当前展示 ${visibleFields.length} 个字段，字段总数 ${fields.length} 个`;
+      document.getElementById("rowCount").textContent = `共 ${activeRows.length} 条，每页 10 条`;
+      updateDateRangeText();
+    }
+
+    function renderFields() {
+      fieldList.innerHTML = fields.map(([name, checked, pinned], index) => `
+        <div class="field-row">
+          <span class="check ${checked ? "on" : ""}" data-index="${index}"></span>
+          <span class="drag"></span>
+          <span>${name}</span>
+          <span class="pin ${pinned ? "blue" : "muted"}"></span>
+          <span class="pin"></span>
+        </div>
+      `).join("");
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add("show");
+      window.setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+
+    function openDrawer() {
+      renderFields();
+      drawer.classList.add("open");
+      mask.classList.add("open");
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove("open");
+      mask.classList.remove("open");
+    }
+
+    document.querySelectorAll(".quick-tabs button").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".quick-tabs button").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        currentRange = button.dataset.range;
+        renderTable();
+        dailyDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+        showToast(`已切换到${button.textContent}数据`);
+      });
+    });
+
+    fieldList.addEventListener("click", (event) => {
+      const check = event.target.closest(".check");
+      if (!check) return;
+      const index = Number(check.dataset.index);
+      fields[index][1] = !fields[index][1];
+      renderFields();
+      renderTable();
+    });
+
+    document.getElementById("fieldBtn").addEventListener("click", openDrawer);
+    document.getElementById("closeDrawer").addEventListener("click", closeDrawer);
+    document.getElementById("cancelDrawer").addEventListener("click", closeDrawer);
+    document.getElementById("confirmDrawer").addEventListener("click", () => { closeDrawer(); showToast("字段配置已保存"); });
+    document.getElementById("restoreBtn").addEventListener("click", () => {
+      fields.forEach((field) => field[1] = true);
+      renderFields();
+      renderTable();
+      showToast("已恢复全部字段");
+    });
+    mask.addEventListener("click", closeDrawer);
+    document.getElementById("searchBtn").addEventListener("click", () => showToast("已按当前筛选条件查询"));
+    document.getElementById("resetBtn").addEventListener("click", () => showToast("筛选条件已重置"));
+    document.getElementById("refreshBtn").addEventListener("click", () => showToast("已刷新日报详细数据"));
+    document.getElementById("exportBtn").addEventListener("click", () => showToast("已生成导出任务"));
+
+    renderMetrics();
+    renderTable();
+  </script>
+</body>
+</html>
