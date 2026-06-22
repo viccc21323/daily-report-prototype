@@ -84,7 +84,9 @@
       white-space: nowrap;
     }
 
-    .control {
+    .control,
+    .select-control,
+    .date-input {
       position: relative;
       height: 36px;
       padding: 0 38px 0 12px;
@@ -120,6 +122,46 @@
       border: 1.8px solid #c5c9d0;
       border-radius: 2px;
       transform: none;
+    }
+
+    .date-filter {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .date-inputs {
+      display: none;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-filter.custom .date-control {
+      display: none;
+    }
+
+    .date-filter.custom .date-inputs {
+      display: grid;
+    }
+
+    .date-input {
+      width: 100%;
+      padding: 0 8px;
+      color: #343941;
+      line-height: 1;
+    }
+
+    .date-inputs span {
+      color: #8d95a1;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .select-control {
+      width: 100%;
+      appearance: none;
+      cursor: pointer;
     }
 
     .filter-actions {
@@ -520,11 +562,24 @@
       </div>
       <div class="filter-item">
         <label>日期范围</label>
-        <div class="control disabled date-control" id="dateRangeText">2026-05-23 <span class="arrow">→</span> 2026-06-21</div>
+        <div class="date-filter" id="dateFilter">
+          <div class="control disabled date-control" id="dateRangeText">2026-05-23 <span class="arrow">→</span> 2026-06-21</div>
+          <div class="date-inputs">
+            <input class="date-input" type="date" id="customStart" value="2026-06-18" />
+            <span>→</span>
+            <input class="date-input" type="date" id="customEnd" value="2026-06-21" />
+          </div>
+        </div>
       </div>
       <div class="filter-item">
         <label>渠道</label>
-        <div class="control">全部渠道</div>
+        <select class="select-control" id="channelSelect">
+          <option value="ALL">全部渠道</option>
+          <option value="FB01">Facebook渠道</option>
+          <option value="GG01">Google渠道</option>
+          <option value="TK01">TikTok渠道</option>
+          <option value="AG01">代理渠道</option>
+        </select>
       </div>
       <div class="filter-actions">
         <button class="btn" type="button" id="resetBtn">重置</button>
@@ -604,6 +659,7 @@
       ["注册人数", true, false],
       ["裂变人数", true, false],
       ["裂变充值人数", true, false],
+      ["裂变充值金额", true, false],
       ["活跃人数", true, false],
       ["提现人数", true, false],
       ["首存人数", true, false],
@@ -647,9 +703,21 @@
     const mask = document.getElementById("mask");
     const toast = document.getElementById("toast");
     const dateRangeText = document.getElementById("dateRangeText");
+    const dateFilter = document.getElementById("dateFilter");
+    const customStart = document.getElementById("customStart");
+    const customEnd = document.getElementById("customEnd");
+    const channelSelect = document.getElementById("channelSelect");
     const dailyDetail = document.getElementById("dailyDetail");
     const baseDate = new Date("2026-06-21T00:00:00");
     let currentRange = "30";
+
+    const channelOptions = [
+      { id: "ALL", name: "所有渠道", factor: 1 },
+      { id: "FB01", name: "Facebook渠道", factor: 0.32 },
+      { id: "GG01", name: "Google渠道", factor: 0.26 },
+      { id: "TK01", name: "TikTok渠道", factor: 0.21 },
+      { id: "AG01", name: "代理渠道", factor: 0.18 }
+    ];
 
     function formatDate(date) {
       const year = date.getFullYear();
@@ -664,14 +732,49 @@
       return next;
     }
 
-    function buildThirtyDayRows(seedRows) {
-      return Array.from({ length: 30 }, (_, index) => {
-        const source = seedRows[index % seedRows.length];
-        const row = [...source];
-        row[0] = String(index + 1);
-        row[1] = formatDate(addDays(baseDate, -index));
-        return row;
+    function formatAmount(value) {
+      return Number(value).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
       });
+    }
+
+    function formatInteger(value) {
+      return String(Math.max(0, Math.round(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function scaleValue(value, factor) {
+      if (!isNumberLike(value) || value.includes("%")) return value;
+      const numeric = Number(value.replace(/,/g, ""));
+      if (!Number.isFinite(numeric)) return value;
+      return value.includes(".") ? formatAmount(numeric * factor) : formatInteger(numeric * factor);
+    }
+
+    function createChannelRow(source, channel, date, index) {
+      const row = [...source];
+      row[0] = String(index + 1);
+      row[1] = date;
+      row[2] = channel.id;
+      row[3] = channel.name;
+      row.splice(21, 0, formatAmount(Number(row[20].replace(/,/g, "")) * 38.6));
+      if (channel.id !== "ALL") {
+        for (let column = 4; column < row.length; column += 1) {
+          row[column] = scaleValue(row[column], channel.factor);
+        }
+      }
+      return row;
+    }
+
+    function buildThirtyDayRows(seedRows) {
+      const builtRows = [];
+      for (let index = 0; index < 30; index += 1) {
+        const source = seedRows[index % seedRows.length];
+        const date = formatDate(addDays(baseDate, -index));
+        channelOptions.forEach((channel) => {
+          builtRows.push(createChannelRow(source, channel, date, index));
+        });
+      }
+      return builtRows;
     }
 
     const allRows = buildThirtyDayRows(rows);
@@ -692,19 +795,25 @@
         return { start: formatDate(addDays(baseDate, -6)), end: formatDate(baseDate), label: "近7日" };
       }
       if (range === "custom") {
-        return { start: "2026-06-18", end: "2026-06-21", label: "自定义" };
+        const start = customStart.value || "2026-06-18";
+        const end = customEnd.value || "2026-06-21";
+        return start <= end
+          ? { start, end, label: "自定义" }
+          : { start: end, end: start, label: "自定义" };
       }
       return { start: formatDate(addDays(baseDate, -29)), end: formatDate(baseDate), label: "近30日" };
     }
 
     function getFilteredRows() {
       const { start, end } = getRangeConfig(currentRange);
-      return allRows.filter((row) => row[1] >= start && row[1] <= end);
+      const channel = channelSelect.value;
+      return allRows.filter((row) => row[1] >= start && row[1] <= end && row[2] === channel);
     }
 
     function updateDateRangeText() {
       const { start, end } = getRangeConfig(currentRange);
       dateRangeText.innerHTML = `${start} <span class="arrow">→</span> ${end}`;
+      dateFilter.classList.toggle("custom", currentRange === "custom");
     }
 
     function renderMetrics() {
@@ -785,6 +894,22 @@
       });
     });
 
+    [customStart, customEnd].forEach((input) => {
+      input.addEventListener("change", () => {
+        currentRange = "custom";
+        document.querySelectorAll(".quick-tabs button").forEach((item) => {
+          item.classList.toggle("active", item.dataset.range === "custom");
+        });
+        renderTable();
+        showToast("已按自定义日期筛选");
+      });
+    });
+
+    channelSelect.addEventListener("change", () => {
+      renderTable();
+      showToast(`已切换到${channelSelect.options[channelSelect.selectedIndex].text}`);
+    });
+
     fieldList.addEventListener("click", (event) => {
       const check = event.target.closest(".check");
       if (!check) return;
@@ -805,8 +930,22 @@
       showToast("已恢复全部字段");
     });
     mask.addEventListener("click", closeDrawer);
-    document.getElementById("searchBtn").addEventListener("click", () => showToast("已按当前筛选条件查询"));
-    document.getElementById("resetBtn").addEventListener("click", () => showToast("筛选条件已重置"));
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      renderTable();
+      dailyDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+      showToast("已按当前筛选条件查询");
+    });
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      currentRange = "30";
+      channelSelect.value = "ALL";
+      customStart.value = "2026-06-18";
+      customEnd.value = "2026-06-21";
+      document.querySelectorAll(".quick-tabs button").forEach((item) => {
+        item.classList.toggle("active", item.dataset.range === "30");
+      });
+      renderTable();
+      showToast("筛选条件已重置");
+    });
     document.getElementById("refreshBtn").addEventListener("click", () => showToast("已刷新日报详细数据"));
     document.getElementById("exportBtn").addEventListener("click", () => showToast("已生成导出任务"));
 
